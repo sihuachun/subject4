@@ -1,0 +1,14 @@
+project_name: shape  # also the folder name of the dataset that under data_path folder
+train_set: train
+val_set: val
+#num_gpus: 1
+num_gpus: 0
+# mean and std in RGB order, actually this part should remain unchanged as long as your dataset is similar to coco.
+mean: [0.29058681879687653, 0.29977030505801616, 0.2556084003583535]
+std: [0.18094857192370656, 0.1867454850562475, 0.21012348350738902]
+
+# this anchor is adapted to the dataset
+anchors_scales: '[2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]'
+anchors_ratios: '[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]'
+
+obj_list: ['ship1', 'ship2', 'ship3', 'ship4', 'ship5']
