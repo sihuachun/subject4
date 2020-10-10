@@ -36,7 +36,7 @@ class Params:
 
 def get_args():
     parser = argparse.ArgumentParser('Yet Another EfficientDet Pytorch: SOTA object detection network - Zylo117')
-    parser.add_argument('-p', '--project', type=str, default='project4', help='project file that contains parameters')
+    parser.add_argument('-p', '--project', type=str, default='subject4', help='project file that contains parameters')
     parser.add_argument('-c', '--compound_coef', type=int, default=4, help='coefficients of efficientdet')
     parser.add_argument('-n', '--num_workers', type=int, default=2, help='num_workers of dataloader')
     parser.add_argument('--batch_size', type=int, default=2, help='The number of images per batch among all devices')
