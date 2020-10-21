@@ -16,23 +16,26 @@ class BBoxTransform(nn.Module):
         Returns:
 
         """
-        y_centers_a = (anchors[..., 0] + anchors[..., 2]) / 2
-        x_centers_a = (anchors[..., 1] + anchors[..., 3]) / 2
-        ha = anchors[..., 2] - anchors[..., 0]
-        wa = anchors[..., 3] - anchors[..., 1]
+        # y_centers_a = (anchors[..., 0] + anchors[..., 2]) / 2
+        # x_centers_a = (anchors[..., 1] + anchors[..., 3]) / 2
+        # ha = anchors[..., 2] - anchors[..., 0]
+        # wa = anchors[..., 3] - anchors[..., 1]
+        #
+        # w = regression[..., 3].exp() * wa
+        # h = regression[..., 2].exp() * ha
+        #
+        # y_centers = regression[..., 0] * ha + y_centers_a
+        # x_centers = regression[..., 1] * wa + x_centers_a
+        #
+        # ymin = y_centers - h / 2.
+        # xmin = x_centers - w / 2.
+        # ymax = y_centers + h / 2.
+        # xmax = x_centers + w / 2.
+        targets = []
+        for i in range(anchors.shape[-1]):
+            targets.append(anchors[..., i] + regression[..., i])
 
-        w = regression[..., 3].exp() * wa
-        h = regression[..., 2].exp() * ha
-
-        y_centers = regression[..., 0] * ha + y_centers_a
-        x_centers = regression[..., 1] * wa + x_centers_a
-
-        ymin = y_centers - h / 2.
-        xmin = x_centers - w / 2.
-        ymax = y_centers + h / 2.
-        xmax = x_centers + w / 2.
-
-        return torch.stack([xmin, ymin, xmax, ymax], dim=2)
+        return torch.stack(targets, dim=2)
 
 
 class ClipBoxes(nn.Module):
@@ -43,11 +46,17 @@ class ClipBoxes(nn.Module):
     def forward(self, boxes, img):
         batch_size, num_channels, height, width = img.shape
 
-        boxes[:, :, 0] = torch.clamp(boxes[:, :, 0], min=0)
-        boxes[:, :, 1] = torch.clamp(boxes[:, :, 1], min=0)
+        boxes[:, :, 0] = torch.clamp(boxes[:, :, 0], min=0, max=width - 1)
+        boxes[:, :, 1] = torch.clamp(boxes[:, :, 1], min=0, max=height - 1)
 
-        boxes[:, :, 2] = torch.clamp(boxes[:, :, 2], max=width - 1)
-        boxes[:, :, 3] = torch.clamp(boxes[:, :, 3], max=height - 1)
+        boxes[:, :, 2] = torch.clamp(boxes[:, :, 2], min=0, max=width - 1)
+        boxes[:, :, 3] = torch.clamp(boxes[:, :, 3], min=0, max=height - 1)
+
+        boxes[:, :, 4] = torch.clamp(boxes[:, :, 4], min=0, max=width - 1)
+        boxes[:, :, 5] = torch.clamp(boxes[:, :, 5], min=0, max=height - 1)
+
+        boxes[:, :, 6] = torch.clamp(boxes[:, :, 6], min=0, max=width - 1)
+        boxes[:, :, 7] = torch.clamp(boxes[:, :, 7], min=0, max=height - 1)
 
         return boxes
 
@@ -119,15 +128,19 @@ class Anchors(nn.Module):
                 xv, yv = np.meshgrid(x, y)
                 xv = xv.reshape(-1)
                 yv = yv.reshape(-1)
-
-                # y1,x1,y2,x2
-                boxes = np.vstack((yv - anchor_size_y_2, xv - anchor_size_x_2,
-                                   yv + anchor_size_y_2, xv + anchor_size_x_2))
+                # # y1,x1,y2,x2
+                # boxes = np.vstack((yv - anchor_size_y_2, xv - anchor_size_x_2,
+                #                    yv + anchor_size_y_2, xv + anchor_size_x_2))
+                # x1,y1,x2,y2,x3,y3,x4,y4
+                boxes = np.vstack((xv - anchor_size_x_2, yv - anchor_size_y_2,
+                                   xv + anchor_size_x_2, yv - anchor_size_y_2,
+                                   xv - anchor_size_x_2, yv + anchor_size_y_2,
+                                   xv + anchor_size_x_2, yv + anchor_size_y_2))
                 boxes = np.swapaxes(boxes, 0, 1)
                 boxes_level.append(np.expand_dims(boxes, axis=1))
             # concat anchors on the same level to the reshape NxAx4
             boxes_level = np.concatenate(boxes_level, axis=1)
-            boxes_all.append(boxes_level.reshape([-1, 4]))
+            boxes_all.append(boxes_level.reshape([-1, 8]))
 
         anchor_boxes = np.vstack(boxes_all)
 

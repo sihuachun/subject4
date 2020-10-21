@@ -8,7 +8,7 @@ import cv2
 
 
 class CocoDataset(Dataset):
-    def __init__(self, root_dir, set='train2017', transform=None):
+    def __init__(self, root_dir, set='train', transform=None):
 
         self.root_dir = root_dir
         self.set_name = set
@@ -57,7 +57,7 @@ class CocoDataset(Dataset):
     def load_annotations(self, image_index):
         # get ground truth annotations
         annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
-        annotations = np.zeros((0, 5))
+        annotations = np.zeros((0, 9))
 
         # some images appear to miss annotations
         if len(annotations_ids) == 0:
@@ -71,14 +71,13 @@ class CocoDataset(Dataset):
             if a['bbox'][2] < 1 or a['bbox'][3] < 1:
                 continue
 
-            annotation = np.zeros((1, 5))
-            annotation[0, :4] = a['bbox']
-            annotation[0, 4] = a['category_id'] - 1
+            annotation = np.zeros((1, 9))
+            annotation[0, :8] = a['segmentation'][0]
+            annotation[0, 8] = a['category_id'] - 1
             annotations = np.append(annotations, annotation, axis=0)
-
-        # transform from [x, y, w, h] to [x1, y1, x2, y2]
-        annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
-        annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
+        # # transform from [x, y, w, h] to [x1, y1, x2, y2]
+        # annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
+        # annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
 
         return annotations
 
@@ -94,13 +93,13 @@ def collater(data):
 
     if max_num_annots > 0:
 
-        annot_padded = torch.ones((len(annots), max_num_annots, 5)) * -1
+        annot_padded = torch.ones((len(annots), max_num_annots, 9)) * -1
 
         for idx, annot in enumerate(annots):
             if annot.shape[0] > 0:
                 annot_padded[idx, :annot.shape[0], :] = annot
     else:
-        annot_padded = torch.ones((len(annots), 1, 5)) * -1
+        annot_padded = torch.ones((len(annots), 1, 9)) * -1
 
     imgs = imgs.permute(0, 3, 1, 2)
 

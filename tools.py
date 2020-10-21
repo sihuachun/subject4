@@ -53,11 +53,12 @@ def calculate_mean_std(path='C:/Users/sihua/Desktop/cv-competition/subject4-data
     return mean, std
 
 
-def transform_annotations(path_images="C:/Users/sihua/Desktop/cv-competition/subject4-data/images", path_labels="C:/Users/sihua/Desktop/cv-competition/subject4-data/labels"):
-    pathDir_images = os.listdir(path_images)
-    pathDir_labels = os.listdir(path_labels)
-    root = "/".join(path_images.split('/')[:-1])
-    os.makedirs(root + '/annotations', exist_ok=True)
+def transform_annotations(path="C:/Users/sihua/Desktop/cv-competition/subject4/datasets/subject4", train=True):
+    if train:
+        kind = "train"
+    else:
+        kind = "val"
+    os.makedirs(path + '/annotations', exist_ok=True)
     information = OrderedDict()
     information["info"] = {"description": "", "url": "", "version": "", "year": 2020, "contributor": "",
                            "date_created": str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))}
@@ -68,17 +69,25 @@ def transform_annotations(path_images="C:/Users/sihua/Desktop/cv-competition/sub
     information["licenses"] = [{"id": 1, "name": None, "url": None}]
 
     images = []
-    H, W, C = imread(os.path.join(path_images, pathDir_images[0])).shape
+    pathDir_images = os.listdir(os.path.join(path, kind))
+    H, W, C = imread(os.path.join(path, kind, pathDir_images[0])).shape
     for image_name in pathDir_images:
         id = image_name.split('.')[0]
-        images.append({"id": int(id), "file_name": image_name, "width": H, "height": W, "date_captured": "", "license": 1, "coco_url": "", "flickr_url": ""})
+        images.append(
+            {"id": int(id), "file_name": image_name, "width": H, "height": W, "date_captured": "", "license": 1,
+             "coco_url": "", "flickr_url": ""})
     information["images"] = images
 
     annotations = []
+    pathDir_labels = os.listdir(os.path.join(path, "labels"))
+    if train:
+        pathDir_labels = pathDir_labels[200:]
+    else:
+        pathDir_labels = pathDir_labels[:200]
     annot_id = 0
     for label_name in pathDir_labels:
         image_id = label_name.split('.')[0]
-        with open(os.path.join(path_labels, label_name), mode='r') as f:
+        with open(os.path.join(path, "labels", label_name), mode='r') as f:
             line = f.readline()
             if line:
                 line_list = line.strip("\n").strip(" ").strip("\t").split(" ")
@@ -87,13 +96,16 @@ def transform_annotations(path_images="C:/Users/sihua/Desktop/cv-competition/sub
                 x_min, x_max = min(x), max(x)
                 y_min, y_max = min(y), max(y)
                 width, height = x_max - x_min, y_max - y_min
-                annotations.append({"id": annot_id, "image_id": int(image_id), "category_id": cls, "iscrowd": 0, "area": width * height, "bbox": [x_min, y_min, width, height], "segmentation": [[x1, y1, x2, y2, x3, y3, x4, y4]]})
+                annotations.append({"id": annot_id, "image_id": int(image_id), "category_id": cls, "iscrowd": 0,
+                                    "area": width * height, "bbox": [x_min, y_min, width, height],
+                                    "segmentation": [[x1, y1, x2, y2, x3, y3, x4, y4]]})
                 annot_id += 1
     information["annotations"] = annotations
-    with open(os.path.join(root, "annotations", "instances.json"), mode='w+') as f:
+    with open(os.path.join(path, "annotations", "instances_{}.json".format(kind)), mode='w+') as f:
         json.dump(information, f)
 
 
 if __name__ == '__main__':
-    calculate_mean_std()
-    # transform_annotations()
+    # calculate_mean_std()
+    transform_annotations()
+    transform_annotations(train=False)

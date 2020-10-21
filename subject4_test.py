@@ -53,7 +53,7 @@ def evaluate_coco(img_path, set_name, model, threshold=0.05):
 
     regressBoxes = BBoxTransform()
     clipBoxes = ClipBoxes()
-    imageDir= os.listdir(img_path)
+    imageDir = os.listdir(img_path)
     for file_name in tqdm(imageDir):
         image_path = img_path + file_name
 
@@ -111,10 +111,16 @@ def evaluate_coco(img_path, set_name, model, threshold=0.05):
         raise Exception('the model does not provide any valid output, check model architecture and the data input')
 
     # write output
-    filepath = f'{set_name}_bbox_results.json'
-    if os.path.exists(filepath):
-        os.remove(filepath)
-    json.dump(results, open(filepath, 'w'), indent=4)
+    with open("subject4_AHUT-meta.txt", mode='w+') as f:
+        for r in results:
+            x1, y1, x2, y2, x3, y3, x4, y4 = map(lambda x: round(x, 3), r['bbox'])
+            line = "{} {} {} {} {} {} {} {} {} {} {}\n".format(r['file_name'], r['category_id'], round(r['score'], 3),
+                                                               x1, y1, x2, y2, x3, y3, x4, y4)
+            f.write(line)
+    # filepath = f'{set_name}_bbox_results.json'
+    # if os.path.exists(filepath):
+    #     os.remove(filepath)
+    # json.dump(results, open(filepath, 'w'), indent=4)
 
 
 if __name__ == '__main__':

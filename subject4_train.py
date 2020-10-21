@@ -35,12 +35,12 @@ class Params:
 
 
 def get_args():
-    parser = argparse.ArgumentParser('Yet Another EfficientDet Pytorch: SOTA object detection network - Zylo117')
+    parser = argparse.ArgumentParser('EfficientDet Pytorch: SOTA object detection network - sihuachun')
     parser.add_argument('-p', '--project', type=str, default='subject4', help='project file that contains parameters')
     parser.add_argument('-c', '--compound_coef', type=int, default=4, help='coefficients of efficientdet')
     parser.add_argument('-n', '--num_workers', type=int, default=2, help='num_workers of dataloader')
-    parser.add_argument('--batch_size', type=int, default=2, help='The number of images per batch among all devices')
-    parser.add_argument('--head_only', type=boolean_string, default=True,
+    parser.add_argument('--batch_size', type=int, default=1, help='The number of images per batch among all devices')
+    parser.add_argument('--head_only', type=boolean_string, default=False,
                         help='whether finetunes only the regressor and the classifier, '
                              'useful in early stage convergence or small/easy dataset')
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -113,17 +113,17 @@ def train(opt):
                   'num_workers': opt.num_workers}
 
     input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
-    training_set = CocoDataset(root_dir=os.path.join(opt.data_path, params.project_name), set=params.train_set,
-                               transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
-                                                             Augmenter(),
-                                                             Resizer(input_sizes[opt.compound_coef])]))
-    training_generator = DataLoader(training_set, **training_params)
+    # training_set = CocoDataset(root_dir=os.path.join(opt.data_path, params.project_name), set=params.train_set,
+    #                            transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
+    #                                                          Augmenter(),
+    #                                                          Resizer(input_sizes[opt.compound_coef])]))
+    # training_generator = DataLoader(training_set, **training_params)
 
-    # val_set = CocoDataset(root_dir=os.path.join(opt.data_path, params.project_name), set=params.val_set,
-    #                       transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
-    #                                                     Resizer(input_sizes[opt.compound_coef])]))
-    # val_generator = DataLoader(val_set, **val_params)
-
+    val_set = CocoDataset(root_dir=os.path.join(opt.data_path, params.project_name), set=params.val_set,
+                          transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
+                                                        Resizer(input_sizes[opt.compound_coef])]))
+    val_generator = DataLoader(val_set, **val_params)
+    training_set, training_generator = val_set, val_generator
     model = EfficientDetBackbone(num_classes=len(params.obj_list), compound_coef=opt.compound_coef,
                                  ratios=eval(params.anchors_ratios), scales=eval(params.anchors_scales))
 
@@ -142,8 +142,8 @@ def train(opt):
             ret = model.load_state_dict(torch.load(weights_path), strict=False)
         except RuntimeError as e:
             print(f'[Warning] Ignoring {e}')
-            print(
-                '[Warning] Don\'t panic if you see this, this might be because you load a pretrained weights with different number of classes. The rest of the weights should be loaded already.')
+            print('[Warning] Don\'t panic if you see this, this might be because you load a pretrained weights with '
+                  'different number of classes. The rest of the weights should be loaded already.')
 
         print(f'[Info] loaded weights: {os.path.basename(weights_path)}, resuming checkpoint from step: {last_step}')
     else:
@@ -265,52 +265,52 @@ def train(opt):
                     continue
             scheduler.step(np.mean(epoch_loss))
 
-            # if epoch % opt.val_interval == 0:
-            #     model.eval()
-            #     loss_regression_ls = []
-            #     loss_classification_ls = []
-            #     for iter, data in enumerate(val_generator):
-            #         with torch.no_grad():
-            #             imgs = data['img']
-            #             annot = data['annot']
-            #             if params.num_gpus == 1:
-            #                 imgs = imgs.cuda()
-            #                 annot = annot.cuda()
-            #
-            #             cls_loss, reg_loss = model(imgs, annot, obj_list=params.obj_list)
-            #             cls_loss = cls_loss.mean()
-            #             reg_loss = reg_loss.mean()
-            #
-            #             loss = cls_loss + reg_loss
-            #             if loss == 0 or not torch.isfinite(loss):
-            #                 continue
-            #
-            #             loss_classification_ls.append(cls_loss.item())
-            #             loss_regression_ls.append(reg_loss.item())
-            #
-            #     cls_loss = np.mean(loss_classification_ls)
-            #     reg_loss = np.mean(loss_regression_ls)
-            #     loss = cls_loss + reg_loss
-            #
-            #     print(
-            #         'Val. Epoch: {}/{}. Classification loss: {:1.5f}. Regression loss: {:1.5f}. Total loss: {:1.5f}'.format(
-            #             epoch, opt.num_epochs, cls_loss, reg_loss, loss))
-            #     writer.add_scalars('Loss', {'val': loss}, step)
-            #     writer.add_scalars('Regression_loss', {'val': reg_loss}, step)
-            #     writer.add_scalars('Classfication_loss', {'val': cls_loss}, step)
-            #
-            #     if loss + opt.es_min_delta < best_loss:
-            #         best_loss = loss
-            #         best_epoch = epoch
-            #
-            #         save_checkpoint(model, f'efficientdet-d{opt.compound_coef}_{epoch}_{step}.pth')
-            #
-            #     model.train()
-            #
-            #     # Early stopping
-            #     if epoch - best_epoch > opt.es_patience > 0:
-            #         print('[Info] Stop training at epoch {}. The lowest loss achieved is {}'.format(epoch, best_loss))
-            #         break
+            if epoch % opt.val_interval == 0:
+                model.eval()
+                loss_regression_ls = []
+                loss_classification_ls = []
+                for iter, data in enumerate(val_generator):
+                    with torch.no_grad():
+                        imgs = data['img']
+                        annot = data['annot']
+                        if params.num_gpus == 1:
+                            imgs = imgs.cuda()
+                            annot = annot.cuda()
+
+                        cls_loss, reg_loss = model(imgs, annot, obj_list=params.obj_list)
+                        cls_loss = cls_loss.mean()
+                        reg_loss = reg_loss.mean()
+
+                        loss = cls_loss + reg_loss
+                        if loss == 0 or not torch.isfinite(loss):
+                            continue
+
+                        loss_classification_ls.append(cls_loss.item())
+                        loss_regression_ls.append(reg_loss.item())
+
+                cls_loss = np.mean(loss_classification_ls)
+                reg_loss = np.mean(loss_regression_ls)
+                loss = cls_loss + reg_loss
+
+                print(
+                    'Val. Epoch: {}/{}. Classification loss: {:1.5f}. Regression loss: {:1.5f}. Total loss: {:1.5f}'.format(
+                        epoch, opt.num_epochs, cls_loss, reg_loss, loss))
+                writer.add_scalars('Loss', {'val': loss}, step)
+                writer.add_scalars('Regression_loss', {'val': reg_loss}, step)
+                writer.add_scalars('Classfication_loss', {'val': cls_loss}, step)
+
+                if loss + opt.es_min_delta < best_loss:
+                    best_loss = loss
+                    best_epoch = epoch
+
+                    save_checkpoint(model, f'efficientdet-d{opt.compound_coef}_{epoch}_{step}.pth')
+
+                model.train()
+
+                # Early stopping
+                if epoch - best_epoch > opt.es_patience > 0:
+                    print('[Info] Stop training at epoch {}. The lowest loss achieved is {}'.format(epoch, best_loss))
+                    break
     except KeyboardInterrupt:
         save_checkpoint(model, f'efficientdet-d{opt.compound_coef}_{epoch}_{step}.pth')
         writer.close()
@@ -325,5 +325,8 @@ def save_checkpoint(model, name):
 
 
 if __name__ == '__main__':
+    import shutil
+    if os.path.exists("logs/"):
+        shutil.rmtree("logs/")
     opt = get_args()
     train(opt)
